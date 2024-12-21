@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "659009314506",
+    "firebase_url": "https://limo-safe-383d3-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "limo-safe-383d3",
+    "storage_bucket": "limo-safe-383d3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:659009314506:android:f0e382dbc2a75decc05e33",
+        "android_client_info": {
+          "package_name": "limosafe.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA8DLaQqeaVpPPuLONEvMfGlRGqwSjWhkU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
