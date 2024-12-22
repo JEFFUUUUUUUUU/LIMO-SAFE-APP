@@ -35,6 +35,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import kotlinx.coroutines.*
+import kotlin.random.Random
 import limosafe.com.ui.theme.LIMOSAFETheme
 
 class MainActivity : ComponentActivity() {
@@ -232,7 +234,46 @@ class LogsPanelActivity : ComponentActivity() {
             Context.MODE_PRIVATE
         )
     }
+    private val morseCodeMap = mapOf(
+        'A' to ".-", 'B' to "-...", 'C' to "-.-.", 'D' to "-..", 'E' to ".",
+        'F' to "..-.", 'G' to "--.", 'H' to "....", 'I' to "..", 'J' to ".---",
+        'K' to "-.-", 'L' to ".-..", 'M' to "--", 'N' to "-.", 'O' to "---",
+        'P' to ".--.", 'Q' to "--.-", 'R' to ".-.", 'S' to "...", 'T' to "-",
+        'U' to "..-", 'V' to "...-", 'W' to ".--", 'X' to "-..-", 'Y' to "-.--",
+        'Z' to "--..",
+        '0' to "-----", '1' to ".----", '2' to "..---", '3' to "...--",
+        '4' to "....-", '5' to ".....", '6' to "-....", '7' to "--...", '8' to "---..", '9' to "----."
+    )
 
+    // Function to convert text to a list of morse code blinks
+    private fun textToMorseBlinks(text: String): List<Boolean> {
+        val blinks = mutableListOf<Boolean>()
+        text.uppercase().forEach { char ->
+            val morseCode = morseCodeMap[char] ?: ""
+            morseCode.forEach {
+                blinks.add(it == '.')
+                blinks.add(false) // Delay after each dot or dash
+            }
+            blinks.add(false) // Delay between letters
+        }
+        return blinks
+    }
+
+    // Function to control the flashlight based on the blink sequence
+    private suspend fun controlFlashlight(cameraManager: CameraManager, cameraId: String, blinks: List<Boolean>) {
+        val shortBlinkDuration = 300L // 0.5 seconds
+        val longBlinkDuration = 600L // 1 second
+        val delayDuration = 300L // 0.5 seconds
+
+        try {
+            for (blink in blinks) {
+                cameraManager.setTorchMode(cameraId, blink)
+                delay(if (blink) if (blinks[blinks.indexOf(blink) - 1]) longBlinkDuration else shortBlinkDuration else delayDuration)
+            }
+        } catch (e: CameraAccessException) {
+            // Handle exception
+        }
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -313,100 +354,143 @@ class LogsPanelActivity : ComponentActivity() {
         private var permissionRequestCount = 5
     }
  @Composable
-    fun LogsPanelScreen(onFlashControl: (Int) -> Unit) {
-        val context = LocalContext.current
-        var otp by remember { mutableStateOf("") }
+ fun LogsPanelScreen(onFlashControl: (Int) -> Unit) {
+     val context = LocalContext.current
+     var otp by remember { mutableStateOf("") }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "LIMO SAFE APP",
-                    fontSize = 30.sp,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+// State to track button cooldown
+     var isButtonEnabled by remember { mutableStateOf(true) }
+     var remainingTime by remember { mutableStateOf(0L) }
 
-                Text(
-                    text = "Logs",
-                    fontSize = 24.sp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp, bottom = 8.dp),
-                    textAlign = TextAlign.Center
-                )
+// Start cooldown timer when button is clicked
+     LaunchedEffect(key1 = isButtonEnabled) {
+         if (!isButtonEnabled) {
+             delay(30000L) // 30 seconds cooldown
+             isButtonEnabled = true
+         }
+     }
+     Column(
+         modifier = Modifier
+             .fillMaxSize()
+             .padding(16.dp),
+         horizontalAlignment = Alignment.CenterHorizontally,
+         verticalArrangement = Arrangement.Center
+     ) {
+         Column(
+             horizontalAlignment = Alignment.CenterHorizontally
+         ) {
+             Text(
+                 text = "LIMO SAFE APP",
+                 fontSize = 30.sp,
+                 fontWeight = FontWeight.Bold,
+                 modifier = Modifier.padding(bottom = 16.dp)
+             )
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.8f)
-                        .height(200.dp)
-                        .padding(8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "Logs Table (Placeholder)")
-                }
-            }
+             Text(
+                 text = "Logs",
+                 fontSize = 24.sp,
+                 fontWeight = FontWeight.Bold,
+                 modifier = Modifier
+                     .fillMaxWidth()
+                     .padding(top = 16.dp, bottom = 8.dp),
+                 textAlign = TextAlign.Center
+             )
 
-            Spacer(Modifier.height(32.dp))
+             Box(
+                 modifier = Modifier
+                     .fillMaxWidth(0.8f)
+                     .height(200.dp)
+                     .padding(8.dp),
+                 contentAlignment = Alignment.Center
+             ) {
+                 Text(text = "Logs Table (Placeholder)")
+             }
+         }
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                BasicTextField(
-                    value = otp,
-                    onValueChange = { otp = it },
-                    modifier = Modifier
-                        .fillMaxWidth(0.8f)
-                        .padding(8.dp)
-                        .background(Color.Gray)
-                        .padding(16.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
-                    singleLine = true
-                )
+         Spacer(Modifier.height(32.dp))
 
-                Row(
-                    modifier = Modifier.padding(top = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Button(
-                        onClick = {
-                            if (otp.isNotEmpty()) {
-                                val flashes = otp.toIntOrNull() ?: 0
-                                onFlashControl(flashes)
-                            }
-                        }
-                    ) {
-                        Text(text = "Request OTP")
-                    }
+         Column(
+             horizontalAlignment = Alignment.CenterHorizontally
+         ) {
+             BasicTextField(
+                 value = otp,
+                 onValueChange = { otp = it },
+                 modifier = Modifier
+                     .fillMaxWidth(0.8f)
+                     .padding(8.dp)
+                     .background(Color.Gray)
+                     .padding(16.dp),
+                 textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                 singleLine = true
+             )
 
-                    Button(
-                        onClick = {
-                            // Handle "Enter OTP" button click
-                        }
-                    ) {
-                        Text(text = "Enter OTP")
-                    }
-                }
-                val context = LocalContext.current
-                Button(
-                    onClick = {
-                        (context as? LogsPanelActivity)?.finish()
-                    },
-                    modifier = Modifier
-                        .width(IntrinsicSize.Min)
-                        .padding(vertical = 16.dp)
-                        .align(Alignment.CenterHorizontally)
-                ) {
-                    Text(text = "Back")
-                }
-            }
-        }
+             Row(
+                 modifier = Modifier.padding(top = 16.dp),
+                 horizontalArrangement = Arrangement.spacedBy(16.dp)
+             ) {
+                 Button(
+                     onClick = {
+                         if (isButtonEnabled) {
+                             otp = generateRandomOtp()
+                             isButtonEnabled = false
+                             remainingTime = 30 // Reset remaining time
+                         }
+                     },
+                     enabled = isButtonEnabled,
+                     modifier = Modifier
+                         .width(IntrinsicSize.Min)
+                         .padding(vertical = 16.dp)
+                 ) {
+                     Text(
+                         text = if (isButtonEnabled) "Request.OTP" else "" // Removed 'enabled' property
+                     )
+                 }
+             }
+// Display cooldown message below the button
+             if (!isButtonEnabled) {
+                 Text(
+                     text = "Cooldown: ${remainingTime}s",
+                     color = Color.Gray // Optional: Change text color for cooldown
+                 )
+             }
+
+// LaunchedEffect for countdown
+             LaunchedEffect(key1 = remainingTime) {
+                 while (remainingTime > 0) {
+                     delay(1000L)
+                     remainingTime -= 1
+                 }
+             }
+             Button(
+                     onClick = {
+                         // Handle "Enter OTP" button click
+                     }
+                 ) {
+                     Text(text = "Enter OTP")
+                 }
+             }
+             val context = LocalContext.current
+             Button(
+                 onClick = {
+                     (context as? LogsPanelActivity)?.finish()
+                 },
+                 modifier = Modifier
+                     .width(IntrinsicSize.Min)
+                     .padding(vertical = 16.dp)
+                     .align(Alignment.CenterHorizontally)
+             ) {
+                 Text(text = "Back")
+             }
+         }
+     }
+ }
+
+    // Function to generate a random 6-digit OTP code
+    private fun generateRandomOtp(): String {
+        val allowedChars = ('A'..'Z') + ('a'..'z') + ('0'..'9') // Characters to include in the OTP
+        return (1..6) // Generate 6 characters
+            .map { allowedChars.random() } // Randomly select a character from the list
+            .joinToString("") // Join the characters into a single string
     }
 
     fun controlFlashlight(cameraManager: CameraManager, cameraId: String, flashes: Int) {
@@ -421,7 +505,7 @@ class LogsPanelActivity : ComponentActivity() {
             e.printStackTrace()
         }
     }
-}
+
 
 class RegisterActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
